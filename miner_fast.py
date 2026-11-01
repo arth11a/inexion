@@ -21,6 +21,8 @@ import core as C
 import miner as M
 
 HERE = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.path.dirname(os.path.abspath(__file__))
+if getattr(sys, "frozen", False) and HERE.endswith(os.path.join("Contents", "MacOS")):   # приложение INEXION.app
+    HERE = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))                      # папка, где лежит .app и bin/
 SRC = os.path.join(HERE, "inxscan.c")
 _ARCH = {"amd64": "x86_64", "x86_64": "x86_64", "arm64": "arm64", "aarch64": "arm64"}
 _SYS = platform.system().lower()

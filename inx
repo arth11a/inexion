@@ -7,6 +7,7 @@ PEER="${INX_PEER:-https://inexion.org}"
 NODE="${INX_NODE:-http://127.0.0.1:9333}"
 cmd="$1"; shift
 case "$cmd" in
+  app)     exec "$PY" inx_app.py "$@" ;;
   wallet)  exec "$PY" wallet.py "$@" ;;
   node)    exec "$PY" node.py --genesis testnet.json --datadir data --peer "$PEER" "$@" ;;
   mine)    [ -n "$1" ] || { echo "Usage: ./inx mine INX_ADDRESS"; exit 1; }
@@ -14,6 +15,7 @@ case "$cmd" in
   balance) exec "$PY" wallet.py balance --node "$NODE" "$@" ;;
   *) cat <<'USAGE'
 INEXION test network
+  ./inx app                             open the app: wallet, transfers, mining in one window
   ./inx wallet new --file wallet.json   create a wallet (password + recovery code)
   ./inx node                            run a node (downloads the chain from https://inexion.org)
   ./inx mine INX_ADDRESS                mine to your address (node must be running)

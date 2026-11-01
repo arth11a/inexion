@@ -110,3 +110,7 @@ python3 wallet.py send --to АДРЕС_ПОЛУЧАТЕЛЯ --amount 5 --node ht
 cd tests
 python3 -m unittest test_core test_wallet_code test_network
 ```
+
+## Приложение с окном
+
+`python3 inx_app.py` открывает окно: кошелёк, переводы и майнинг. Нужен Python с tkinter (в установщике с python.org он есть). Если tkinter нет, приложение откроется в браузере (`--web`).

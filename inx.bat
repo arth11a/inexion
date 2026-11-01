@@ -8,15 +8,20 @@ if not defined PY goto nopython
 if "%INX_PEER%"=="" set "INX_PEER=https://inexion.org"
 if "%INX_NODE%"=="" set "INX_NODE=http://127.0.0.1:9333"
 set "CMD=%~1"
+if /i "%CMD%"=="app" goto app
 if /i "%CMD%"=="wallet" goto wallet
 if /i "%CMD%"=="node" goto node
 if /i "%CMD%"=="mine" goto mine
 if /i "%CMD%"=="balance" goto balance
 echo INEXION test network
+echo   inx app                             open the app: wallet, transfers, mining in one window
 echo   inx wallet new --file wallet.json   create a wallet (password + recovery code)
 echo   inx node                            run a node (downloads the chain from https://inexion.org)
 echo   inx mine INX_ADDRESS                mine to your address (node must be running)
 echo   inx balance --file wallet.json      show balance
+goto :eof
+:app
+%PY% inx_app.py
 goto :eof
 :wallet
 shift
