@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# INEXION launcher.  ./inx wallet new --file wallet.json | ./inx node | ./inx mine INX_ADDRESS | ./inx balance --file wallet.json
+cd "$(dirname "$0")" || exit 1
+PY=python3; command -v python3 >/dev/null 2>&1 || PY=python
+command -v "$PY" >/dev/null 2>&1 || { echo "Python 3.8+ not found. Install it (Debian/Ubuntu: sudo apt install python3)."; exit 1; }
+PEER="${INX_PEER:-https://inexion.org}"
+NODE="${INX_NODE:-http://127.0.0.1:9333}"
+cmd="$1"; shift
+case "$cmd" in
+  wallet)  exec "$PY" wallet.py "$@" ;;
+  node)    exec "$PY" node.py --genesis testnet.json --datadir data --peer "$PEER" "$@" ;;
+  mine)    [ -n "$1" ] || { echo "Usage: ./inx mine INX_ADDRESS"; exit 1; }
+           exec "$PY" miner_fast.py --node "$NODE" --address "$1" ;;
+  balance) exec "$PY" wallet.py balance --node "$NODE" "$@" ;;
+  *) cat <<'USAGE'
+INEXION test network
+  ./inx wallet new --file wallet.json   create a wallet (password + recovery code)
+  ./inx node                            run a node (downloads the chain from https://inexion.org)
+  ./inx mine INX_ADDRESS                mine to your address (node must be running)
+  ./inx balance --file wallet.json      show balance
+USAGE
+  ;;
+esac

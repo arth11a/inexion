@@ -1,0 +1,31 @@
+INEXION test network: quick start
+=================================
+Needs Python 3.8 or newer. The test network coins have no value.
+
+1. Create a wallet. You set a password and get a recovery code: write the code on paper.
+     Linux / macOS:  ./inx wallet new --file wallet.json
+     Windows:        inx.bat wallet new --file wallet.json
+2. Start your node. It downloads the chain from https://inexion.org and checks every block.
+     ./inx node            (Windows: inx.bat node)
+3. In a second window, mine to the address printed in step 1.
+     ./inx mine INX_YOUR_ADDRESS        (Windows: inx.bat mine INX_YOUR_ADDRESS)
+   Balance:  ./inx balance --file wallet.json
+
+Fast mining: the folder bin/ holds a ready C helper for Linux x86-64. On Linux/macOS with a C compiler
+the helper is built automatically. Without either, a slow Python miner is used.
+
+--------------------------------------------------------------------------------
+Тестовая сеть INEXION: быстрый старт
+Нужен Python 3.8 или новее. Монеты тестовой сети ничего не стоят.
+
+1. Создайте кошелёк: задайте пароль и запишите на бумагу код восстановления.
+     Linux / macOS:  ./inx wallet new --file wallet.json
+     Windows:        inx.bat wallet new --file wallet.json
+2. Запустите свой узел: он скачает цепочку с https://inexion.org и проверит каждый блок.
+     ./inx node            (Windows: inx.bat node)
+3. В другом окне майните на адрес из шага 1.
+     ./inx mine INX_ВАШ_АДРЕС        (Windows: inx.bat mine INX_ВАШ_АДРЕС)
+   Баланс:  ./inx balance --file wallet.json
+
+Быстрый майнинг: в папке bin/ лежит готовая программа на C для Linux x86-64. На Linux/macOS с компилятором C
+она соберётся сама. Без того и другого используется медленный майнер на Python.

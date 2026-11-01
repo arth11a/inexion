@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>INEXION Explorer</title>
+<style>
+  :root { --bg:#0b0e17; --panel:#131827; --line:#232b42; --text:#e8ecf6; --muted:#8993ad; --brand:#8b6cff; --brand2:#38d5ff; --green:#2ebd85; --red:#f6465d; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:radial-gradient(1200px 500px at 80% -10%, #1a1440 0%, var(--bg) 60%) fixed; color:var(--text); font:14px/1.45 -apple-system,"Segoe UI",Roboto,sans-serif; }
+  header { display:flex; gap:16px; align-items:center; padding:12px 20px; background:rgba(19,24,39,.92); border-bottom:1px solid var(--line); flex-wrap:wrap; position:sticky; top:0; }
+  header b { font-size:18px; letter-spacing:.18em; background:linear-gradient(90deg,var(--brand),var(--brand2)); -webkit-background-clip:text; background-clip:text; color:transparent; cursor:pointer; }
+  header form { flex:1; min-width:240px; display:flex; gap:8px; }
+  input { flex:1; background:#0c1120; border:1px solid var(--line); border-radius:6px; color:var(--text); padding:8px 10px; font:inherit; }
+  button { background:#1e2740; border:1px solid var(--line); color:var(--text); border-radius:6px; padding:8px 12px; cursor:pointer; font:inherit; }
+  main { padding:16px 20px; max-width:1200px; margin:0 auto; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:10px; margin-bottom:16px; }
+  .card, .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; }
+  .card small { color:var(--muted); display:block; font-size:12px; } .card b { font-size:17px; }
+  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:0 0 8px; }
+  table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+  th, td { text-align:left; padding:5px 6px; border-bottom:1px solid #1b2236; vertical-align:top; }
+  th { color:var(--muted); font-weight:500; font-size:12px; }
+  a { color:var(--brand2); text-decoration:none; cursor:pointer; } a:hover { text-decoration:underline; }
+  .mono { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px; word-break:break-all; }
+  .muted { color:var(--muted); } .in { color:var(--green); } .out { color:var(--red); }
+  .kv { display:grid; grid-template-columns:150px 1fr; gap:4px 12px; } .kv div:nth-child(odd) { color:var(--muted); }
+  .bar { height:8px; border-radius:4px; background:#0c1120; border:1px solid var(--line); overflow:hidden; margin-top:6px; }
+  .bar i { display:block; height:100%; background:linear-gradient(90deg,var(--brand),var(--brand2)); }
+  .err { color:var(--red); }
+</style>
+</head>
+<body>
+<header>
+  <b onclick="location.hash=''">INEXION EXPLORER</b>
+  <form id="sf"><input id="q" placeholder="Номер блока, хеш блока, txid или адрес INX…" autocomplete="off"><button>Найти</button></form>
+</header>
+<main id="main">Загрузка…</main>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const UNIT = 1e8;
+const amt = u => { u = Number(u); const neg = u < 0; u = Math.abs(u); const w = Math.floor(u / UNIT), f = String(u % UNIT).padStart(8, '0'); return (neg ? '-' : '') + w.toLocaleString('ru-RU') + '.' + f; };
+const short = (h, n = 12) => h ? esc(h.slice(0, n)) + '…' : '';
+const when = t => new Date(t * 1000).toLocaleString();
+const api = async p => { const r = await fetch('/api/' + p); const j = await r.json(); if (!r.ok) throw new Error(j.error || 'ошибка'); return j; };
+const link = (kind, v, label) => `<a href="#${kind}/${esc(v)}">${label || short(v)}</a>`;
+const minerOf = b => b.txs[0].type === 'coinbase' ? b.txs[0].to : (b.txs[0].type === 'allocation' ? b.txs[0].to : '');
+
+async function home() {
+  const s = await api('status');
+  const total = s.mined_supply + s.founder_alloc;
+  const start = Math.max(0, s.height - 19);
+  const blocks = (await api(`blocks?from=${start}&limit=20`)).reverse();
+  $('main').innerHTML = `
+    <div class="cards">
+      <div class="card"><small>Высота</small><b>${s.height.toLocaleString('ru-RU')}</b></div>
+      <div class="card"><small>Выпущено INX</small><b>${amt(total)}</b>
+        <div class="bar"><i style="width:${Math.max(0.5, total / s.max_supply * 100)}%"></i></div></div>
+      <div class="card"><small>Награда за блок</small><b>${amt(s.next_reward)}</b><small>халвинг через ${s.blocks_to_halving.toLocaleString('ru-RU')} блоков</small></div>
+      <div class="card"><small>Заморожено у основателя</small><b>${amt(s.founder_locked)}</b><small>до ${when(s.founder_unlock_end)}</small></div>
+      <div class="card"><small>Узлов-соседей / мемпул</small><b>${s.peers} / ${s.mempool}</b></div>
+    </div>
+    <div class="panel"><h2>Последние блоки</h2><table>
+      <tr><th>Высота</th><th>Время</th><th>Транзакций</th><th>Майнер</th><th>Хеш</th></tr>
+      ${blocks.map(b => `<tr><td>${link('block', b.height, b.height)}</td><td>${when(b.time)}</td><td>${b.txs.length}</td>
+        <td>${link('address', minerOf(b), short(minerOf(b), 10))}</td><td class="mono">${short(b.hash, 16)}</td></tr>`).join('')}
+    </table></div>
+    <div class="panel" style="margin-top:12px"><h2>Сеть</h2><div class="kv">
+      <div>chain_id</div><div class="mono">${esc(s.chain_id)}</div>
+      <div>Лимит</div><div>${amt(s.max_supply)} INX</div>
+      <div>Основатель</div><div class="mono">${link('address', s.founder_address, esc(s.founder_address))}</div></div></div>`;
+}
+
+async function blockView(id) {
+  const b = await api('block/' + id);
+  $('main').innerHTML = `<div class="panel"><h2>Блок ${b.height}</h2><div class="kv">
+    <div>Хеш</div><div class="mono">${esc(b.hash)}</div>
+    <div>Предыдущий</div><div class="mono">${b.height ? link('block', b.prev, esc(b.prev)) : '—'}</div>
+    <div>Merkle-корень</div><div class="mono">${esc(b.merkle)}</div>
+    <div>Время</div><div>${when(b.time)}</div>
+    <div>Сложность (target)</div><div class="mono">${esc(b.target)}</div>
+    <div>Nonce</div><div>${b.nonce}</div></div></div>
+    <div class="panel" style="margin-top:12px"><h2>Транзакции (${b.txs.length})</h2>
+      ${b.txs.map((t, i) => txHtml(t, b.txids[i])).join('') || ''}</div>`;
+}
+
+function txHtml(t, id) {
+  if (t.type === 'coinbase') return `<div style="padding:6px 0;border-bottom:1px solid #1b2236">⛏ награда майнеру → ${link('address', t.to, short(t.to, 14))} <b class="in">+${amt(t.amount)}</b></div>`;
+  if (t.type === 'allocation') return `<div style="padding:6px 0;border-bottom:1px solid #1b2236">👤 доля основателя (заморожена, разморозка линейно) → ${link('address', t.to, short(t.to, 14))} <b class="in">+${amt(t.amount)}</b><div class="muted">${esc(t.note)}</div></div>`;
+  return `<div style="padding:6px 0;border-bottom:1px solid #1b2236"><span class="mono">${link('tx', id, short(id, 16))}</span> → ${link('address', t.to, short(t.to, 14))} <b>${amt(t.amount)}</b> <span class="muted">комиссия ${amt(t.fee)} · nonce ${t.nonce}</span></div>`;
+}
+
+async function txView(id) {
+  const d = await api('tx/' + id), t = d.tx;
+  $('main').innerHTML = `<div class="panel"><h2>Транзакция</h2><div class="kv">
+    <div>txid</div><div class="mono">${esc(d.txid)}</div>
+    <div>Статус</div><div>${d.status === 'confirmed' ? 'подтверждена, блок ' + link('block', d.height, d.height) + ', подтверждений: ' + d.confirmations : 'ждёт включения в блок'}</div>
+    <div>Тип</div><div>${esc(t.type)}</div>
+    ${t.from_pub ? `<div>Публичный ключ</div><div class="mono">${esc(t.from_pub)}</div>` : ''}
+    <div>Получатель</div><div class="mono">${link('address', t.to, esc(t.to))}</div>
+    <div>Сумма</div><div>${amt(t.amount)} INX</div>
+    ${t.fee !== undefined ? `<div>Комиссия</div><div>${amt(t.fee)} INX</div><div>Nonce</div><div>${t.nonce}</div><div>Подпись</div><div class="mono">${esc(t.sig)}</div>` : ''}
+    </div></div>`;
+}
+
+async function addressView(a) {
+  const d = await api('address/' + a);
+  const rows = d.history.map(h => `<tr><td>${link('block', h.height, h.height)}</td><td>${when(h.time)}</td>
+    <td>${{mined:'⛏ награда', founder:'👤 доля основателя', sent:'отправлено', received:'получено'}[h.kind]}</td>
+    <td class="mono">${h.other ? link('address', h.other, short(h.other, 12)) : ''}</td>
+    <td class="${h.kind === 'sent' ? 'out' : 'in'}">${h.kind === 'sent' ? '−' : '+'}${amt(h.amount)}</td>
+    <td class="mono">${link('tx', h.txid, short(h.txid, 10))}</td></tr>`).join('');
+  $('main').innerHTML = `<div class="panel"><h2>Адрес</h2><div class="kv">
+    <div>Адрес</div><div class="mono">${esc(d.address)}</div>
+    <div>Баланс</div><div><b>${amt(d.balance)} INX</b></div>
+    <div>Заморожено</div><div>${amt(d.locked)} INX</div>
+    <div>Можно потратить</div><div>${amt(d.spendable)} INX</div>
+    <div>Исходящих переводов</div><div>${d.nonce}</div></div></div>
+    <div class="panel" style="margin-top:12px"><h2>История (последние ${d.history.length})</h2>
+    <table><tr><th>Блок</th><th>Время</th><th>Тип</th><th>Контрагент</th><th>Сумма</th><th>txid</th></tr>${rows}</table></div>`;
+}
+
+async function route() {
+  const h = decodeURIComponent(location.hash.slice(1));
+  try {
+    if (!h) return await home();
+    const [kind, ...rest] = h.split('/'), v = rest.join('/');
+    if (kind === 'block') return await blockView(v);
+    if (kind === 'tx') return await txView(v);
+    if (kind === 'address') return await addressView(v);
+    await home();
+  } catch (e) { $('main').innerHTML = `<div class="panel err">${esc(e.message)}</div>`; }
+}
+
+$('sf').onsubmit = e => {
+  e.preventDefault();
+  const q = $('q').value.trim();
+  if (!q) return;
+  if (/^\d+$/.test(q)) location.hash = 'block/' + q;
+  else if (/^INX/.test(q)) location.hash = 'address/' + q;
+  else if (/^[0-9a-f]{64}$/i.test(q)) {
+    api('tx/' + q.toLowerCase()).then(() => location.hash = 'tx/' + q.toLowerCase()).catch(() => location.hash = 'block/' + q.toLowerCase());
+  } else $('main').innerHTML = '<div class="panel err">Не похоже ни на блок, ни на адрес, ни на txid</div>';
+};
+window.addEventListener('hashchange', route);
+route();
+setInterval(() => { if (!location.hash) home().catch(() => {}); }, 8000);
+</script>
+</body>
+</html>

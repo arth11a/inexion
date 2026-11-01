@@ -1,0 +1,23 @@
+{
+  "coin": "INEXION",
+  "ticker": "INX",
+  "protocol": 1,
+  "block": {
+    "height": 0,
+    "prev": "0000000000000000000000000000000000000000000000000000000000000000",
+    "merkle": "e79897a784762997d08149ccad5ecb4fa0b0c9ee3fa110ab1c821943b0bc5d27",
+    "time": 1793490808,
+    "target": "000fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "nonce": 13344,
+    "txs": [
+      {
+        "type": "allocation",
+        "to": "INXETPfz9jfe3942EruNBhepUQdNRWmeuGv8",
+        "amount": 210000000000000,
+        "vesting_seconds": 63072000,
+        "note": "testnet v2"
+      }
+    ],
+    "hash": "000594d8958c0deac6c587d64435b039cfd4155e71f32b2aa5d3dac225d713db"
+  }
+}
