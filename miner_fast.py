@@ -23,13 +23,25 @@ import miner as M
 HERE = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.path.dirname(os.path.abspath(__file__))
 if getattr(sys, "frozen", False) and HERE.endswith(os.path.join("Contents", "MacOS")):   # приложение INEXION.app
     HERE = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))                      # папка, где лежит .app и bin/
-SRC = os.path.join(HERE, "inxscan.c")
+_RES = getattr(sys, "_MEIPASS", None)             # ресурсы, вложенные в приложение PyInstaller
+
+
+def _first(paths):
+    return next((p for p in paths if p and os.path.exists(p)), paths[0])
+
+
+SRC = _first([os.path.join(HERE, "inxscan.c"), _RES and os.path.join(_RES, "inxscan.c")])
 _ARCH = {"amd64": "x86_64", "x86_64": "x86_64", "arm64": "arm64", "aarch64": "arm64"}
 _SYS = platform.system().lower()
 _MACH = _ARCH.get(platform.machine().lower(), platform.machine().lower())
 NAME = "inxscan-%s-%s%s" % (_SYS, _MACH, ".exe" if _SYS == "windows" else "")
-PREBUILT = os.path.join(HERE, "bin", NAME)       # готовая сборка из релизного архива
-BUILT = os.path.join(HERE, NAME)                  # собранная здесь из inxscan.c
+PREBUILT = _first([os.path.join(HERE, "bin", NAME), _RES and os.path.join(_RES, "bin", NAME)])   # готовая сборка
+if os.access(HERE, os.W_OK):
+    BUILT = os.path.join(HERE, NAME)              # собранная здесь из inxscan.c
+else:                                             # папка только для чтения (например, приложение в /Applications)
+    _D = os.path.join(os.path.expanduser("~"), ".inexion")
+    os.makedirs(_D, exist_ok=True)
+    BUILT = os.path.join(_D, NAME)
 FLAGS = [["-O2", "-mcpu=native"], ["-O2", "-march=armv8-a+crypto"], ["-O2"]]
 BIN = None
 
@@ -75,6 +87,11 @@ def build(log=print):
 def ensure_binary(log=print):
     """Выбирает программу перебора. Возвращает путь или бросает RuntimeError."""
     global BIN
+    if os.path.exists(PREBUILT):
+        try:
+            os.chmod(PREBUILT, 0o755)
+        except OSError:
+            pass
     impl = _impl(PREBUILT) if os.path.exists(PREBUILT) else None
     if impl:
         BIN = PREBUILT

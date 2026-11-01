@@ -72,13 +72,22 @@ def find_wallets():
 class Miner:
     def __init__(self):
         self.thread, self.stop_ev = None, threading.Event()
-        self.log, self.blocks, self.rate, self.started, self.engine = [], 0, 0.0, 0, ""
+        self.log, self.head, self.blocks, self.rate, self.started, self.engine = [], [], 0, 0.0, 0, ""
         self.lock = threading.Lock()
 
     def say(self, msg):
         with self.lock:
-            self.log.append("%s  %s" % (time.strftime("%H:%M:%S"), msg))
-            del self.log[:-200]
+            line = "%s  %s" % (time.strftime("%H:%M:%S"), msg)
+            if len(self.head) < 6:
+                self.head.append(line)
+            else:
+                self.log.append(line)
+                del self.log[:-54]
+
+    def view(self):
+        """Первые строки (запуск и причина выбора движка) + последние."""
+        with self.lock:
+            return self.head + (["…"] if len(self.log) >= 54 else []) + list(self.log)
 
     def running(self):
         return bool(self.thread and self.thread.is_alive())
@@ -88,6 +97,8 @@ class Miner:
             return
         self.stop_ev = threading.Event()
         self.blocks, self.rate, self.started = 0, 0.0, int(time.time())
+        with self.lock:
+            self.head, self.log = [], []
         self.thread = threading.Thread(target=self._run, args=(node, address, threads, self.stop_ev), daemon=True)
         self.thread.start()
 
@@ -102,7 +113,7 @@ class Miner:
             scan, self.engine = MF.scan, "C, %d потоков" % threads
         except Exception as e:                                         # нет компилятора и готовой сборки
             self.say("Быстрый майнер недоступен (%s). Считаю на Python: это намного медленнее." % e)
-            self.engine, threads = "Python, 1 поток", 1
+            self.engine, threads = "Python (C недоступен: %s)" % str(e)[:60], 1
         self.say("Майнинг запущен: %s" % self.engine)
         node, chunk = node.rstrip("/"), 20_000_000 if scan else 200_000
         while not stop.is_set():
@@ -342,10 +353,8 @@ def api(st, path, b):
             return {"info": info, "status": _node_get(st, "/api/status")}
         if path == "/api/mining":
             m = st.miner
-            with m.lock:
-                log = list(m.log[-60:])
             return {"running": m.running(), "blocks": m.blocks, "rate": m.rate, "engine": m.engine,
-                    "started": m.started, "log": log}
+                    "started": m.started, "log": m.view()}
         return None
     # POST
     if path == "/api/unlock":
