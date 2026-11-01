@@ -56,10 +56,12 @@ jobs:
         run: |
           pyinstaller --onefile --name inx-wallet wallet.py
           pyinstaller --onefile --name inx-miner miner_fast.py
+          EXTRA="--add-data inxscan.c${{ matrix.sep }}."
+          for f in dist/bin/*; do EXTRA="$EXTRA --add-data $f${{ matrix.sep }}bin"; done
           if [ "$RUNNER_OS" = "macOS" ]; then
-            pyinstaller --windowed --name INEXION inx_app.py || echo "app build failed"
+            pyinstaller --windowed --name INEXION $EXTRA inx_app.py || echo "app build failed"
           else
-            pyinstaller --onefile --windowed --name INEXION inx_app.py || echo "app build failed"
+            pyinstaller --onefile --windowed --name INEXION $EXTRA inx_app.py || echo "app build failed"
           fi
           pyinstaller --onefile --name inx-node --add-data "explorer.html${{ matrix.sep }}." node.py
       - name: Package
