@@ -1,0 +1,93 @@
+name: release
+# Собирает готовые сборки для Linux, Windows и macOS без Python для пользователя.
+# Запуск: вкладка Actions -> release -> Run workflow, либо push тега вида v0.1.0 (тогда создаётся и Release).
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest,  target: linux-x86_64,   sep: ":" }
+          - { os: windows-latest, target: windows-x86_64, sep: ";" }
+          - { os: macos-latest,   target: macos-arm64,    sep: ":" }
+          - { os: macos-13,       target: macos-x86_64,   sep: ":" }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install PyInstaller
+        run: python -m pip install pyinstaller
+      - name: Tests (Linux and macOS)
+        if: runner.os != 'Windows'
+        run: cd tests && python -m unittest test_core test_wallet_code test_network
+      - name: Build C helper (Linux and macOS)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          mkdir -p dist/bin
+          NAME=inxscan-$(python -c "import platform;m=platform.machine().lower();print(platform.system().lower()+'-'+{'amd64':'x86_64','aarch64':'arm64'}.get(m,m))")
+          if [ "$RUNNER_OS" = "Linux" ]; then cc -O2 -static -pthread -o dist/bin/$NAME inxscan.c
+          elif [ "$(uname -m)" = "arm64" ]; then cc -O2 -mcpu=apple-m1 -pthread -o dist/bin/$NAME inxscan.c
+          else cc -O2 -pthread -o dist/bin/$NAME inxscan.c; fi
+          dist/bin/$NAME --selftest | tail -2
+      - name: Set up MinGW (Windows)
+        if: runner.os == 'Windows'
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          install: mingw-w64-x86_64-gcc
+      - name: Build C helper (Windows)
+        if: runner.os == 'Windows'
+        shell: msys2 {0}
+        run: |
+          mkdir -p dist/bin
+          gcc -O2 -static -pthread -o dist/bin/inxscan-windows-x86_64.exe inxscan.c
+          dist/bin/inxscan-windows-x86_64.exe --selftest | tail -2
+      - name: Build executables
+        shell: bash
+        run: |
+          pyinstaller --onefile --name inx-wallet wallet.py
+          pyinstaller --onefile --name inx-miner miner_fast.py
+          pyinstaller --onefile --name inx-node --add-data "explorer.html${{ matrix.sep }}." node.py
+      - name: Package
+        shell: bash
+        run: |
+          D=pkg/inexion-${{ matrix.target }}
+          mkdir -p "$D"
+          cp dist/inx-* "$D/"
+          cp -r dist/bin "$D/bin"
+          cp launch/testnet.json "$D/testnet.json"
+          cp README.md LICENSE RUN.txt "$D/"
+          python - <<'PY'
+          import hashlib, shutil, os
+          t = "${{ matrix.target }}"
+          out = shutil.make_archive("inexion-" + t, "zip", "pkg")
+          h = hashlib.sha256(open(out, "rb").read()).hexdigest()
+          open(out + ".sha256", "w").write(h + "  " + os.path.basename(out) + "\n")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: inexion-${{ matrix.target }}
+          path: |
+            inexion-*.zip
+            inexion-*.sha256
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: out/*
