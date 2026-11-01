@@ -27,7 +27,7 @@ jobs:
         run: python -m pip install pyinstaller
       - name: Tests (Linux and macOS)
         if: runner.os != 'Windows'
-        run: cd tests && python -m unittest test_core test_wallet_code test_netutil test_network
+        run: cd tests && python -m unittest test_core test_wallet_code test_netutil test_app test_gui test_network
       - name: Build C helper (Linux and macOS)
         if: runner.os != 'Windows'
         shell: bash
@@ -56,6 +56,11 @@ jobs:
         run: |
           pyinstaller --onefile --name inx-wallet wallet.py
           pyinstaller --onefile --name inx-miner miner_fast.py
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            pyinstaller --windowed --name INEXION inx_app.py || echo "app build failed"
+          else
+            pyinstaller --onefile --windowed --name INEXION inx_app.py || echo "app build failed"
+          fi
           pyinstaller --onefile --name inx-node --add-data "explorer.html${{ matrix.sep }}." node.py
       - name: Package
         shell: bash
@@ -63,13 +68,20 @@ jobs:
           D=pkg/inexion-${{ matrix.target }}
           mkdir -p "$D"
           cp dist/inx-* "$D/"
+          if [ -d dist/INEXION.app ]; then cp -R dist/INEXION.app "$D/"; fi
+          for f in dist/INEXION dist/INEXION.exe; do if [ -f "$f" ]; then cp "$f" "$D/"; fi; done
           cp -r dist/bin "$D/bin"
           cp launch/testnet.json "$D/testnet.json"
           cp README.md LICENSE RUN.txt "$D/"
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            (cd pkg && zip -qry "../inexion-${{ matrix.target }}.zip" .)
+          fi
           python - <<'PY'
           import hashlib, shutil, os
           t = "${{ matrix.target }}"
-          out = shutil.make_archive("inexion-" + t, "zip", "pkg")
+          out = "inexion-" + t + ".zip"
+          if not os.path.exists(out):
+              out = shutil.make_archive("inexion-" + t, "zip", "pkg")
           h = hashlib.sha256(open(out, "rb").read()).hexdigest()
           open(out + ".sha256", "w").write(h + "  " + os.path.basename(out) + "\n")
           PY
