@@ -16,7 +16,7 @@ jobs:
           - { os: ubuntu-latest,  target: linux-x86_64,   sep: ":" }
           - { os: windows-latest, target: windows-x86_64, sep: ";" }
           - { os: macos-latest,   target: macos-arm64,    sep: ":" }
-          - { os: macos-13,       target: macos-x86_64,   sep: ":" }
+          - { os: macos-15-intel, target: macos-x86_64,   sep: ":" }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -27,7 +27,7 @@ jobs:
         run: python -m pip install pyinstaller
       - name: Tests (Linux and macOS)
         if: runner.os != 'Windows'
-        run: cd tests && python -m unittest test_core test_wallet_code test_network
+        run: cd tests && python -m unittest test_core test_wallet_code test_netutil test_network
       - name: Build C helper (Linux and macOS)
         if: runner.os != 'Windows'
         shell: bash
